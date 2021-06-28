@@ -71,7 +71,7 @@ class TModule(NMMModule):
 
     def do_third(self, alpha):
         assert(alpha <= 1 and alpha >= 0)
-        self.op.weight.grad.data = (1 - alpha) * self.op.weight.grad.data + alpha * self.weightT.grad.data
+        self.op.weight.grad.data = (1 - alpha) * self.op.weight.grad.data + alpha * self.weightH.grad.data
 
 class OLinear(OModule):
     def __init__(self, in_features, out_features, bias=True):
@@ -103,7 +103,7 @@ class TLinear(TModule):
         self.function = TLinearFunction.apply
 
     def forward(self, x, xT):
-        x, xT = self.function(x, xT, (self.op.weight + self.noise) * self.mask, self.weightT, self.op.bias)
+        x, xT = self.function(x, xT, (self.op.weight + self.noise) * self.mask, self.weightH, self.op.bias)
         return x, xT
 
 class OConv2d(OModule):
@@ -136,7 +136,7 @@ class TConv2d(TModule):
         self.function = TConv2dFunction.apply
 
     def forward(self, x, xT):
-        x, xT = self.function(x, xT, (self.op.weight + self.noise) * self.mask, self.weightT, self.op.bias, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
+        x, xT = self.function(x, xT, (self.op.weight + self.noise) * self.mask, self.weightH, self.op.bias, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         return x, xT
 
 class OReLU(nn.Module):
@@ -311,7 +311,7 @@ class NMMModel(nn.Module):
                 new_layer.op = m.op
                 self._modules[name] = new_layer
             
-            elif "op" in name or isinstance(m, NMMModel):
+            elif "op" in name or isinstance(m, NMMModel) or isinstance(m, OLinear) or isinstance(m, OConv2d) or isinstance(m, OMaxpool2D) or isinstance(m, OReLU):
                 pass
             else:
                 print(m)
@@ -351,7 +351,7 @@ class NMMModel(nn.Module):
                 new_layer.op = m.op
                 self._modules[name] = new_layer
 
-            elif "op" in name or isinstance(m, NMMModel):
+            elif "op" in name or isinstance(m, NMMModel)or isinstance(m, SLinear) or isinstance(m, SConv2d) or isinstance(m, SMaxpool2D) or isinstance(m, SReLU):
                 pass
 
             else:
@@ -392,7 +392,7 @@ class NMMModel(nn.Module):
                 new_layer.op = m.op
                 self._modules[name] = new_layer
 
-            elif "op" in name or isinstance(m, NMMModel):
+            elif "op" in name or isinstance(m, NMMModel) or isinstance(m, TLinear) or isinstance(m, TConv2d) or isinstance(m, TMaxpool2D) or isinstance(m, TReLU):
                 pass
 
             else:

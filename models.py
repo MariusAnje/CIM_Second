@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-from Functions import SCrossEntropyLossFunction, TCrossEntropyLossFunction
+from Functions import SCrossEntropyLossFunction
+from TFunctions import TCrossEntropyLossFunction
 from modules import SLinear, SReLU, NMMModel, SConv2d, SMaxpool2D
 
 class OCrossEntropyLoss(nn.Module):

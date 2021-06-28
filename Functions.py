@@ -173,39 +173,39 @@ class SCrossEntropyLossFunction(autograd.Function):
 
         return grad_input, grad_inputS, None, None, None, None, None, None
 
-class TCrossEntropyLossFunction(autograd.Function):
-    @staticmethod
-    # bias is an optional argument
-    def forward(ctx, input, inputS, target, weight=None, size_average=None, ignore_index=-100, reduce=None, reduction='mean'):
-        function = torch.nn.functional.cross_entropy
-        output = function(input, target, weight, size_average, ignore_index, reduce, reduction)
-        ctx.save_for_backward(input, target)
-        return output
+# class TCrossEntropyLossFunction(autograd.Function):
+#     @staticmethod
+#     # bias is an optional argument
+#     def forward(ctx, input, inputS, target, weight=None, size_average=None, ignore_index=-100, reduce=None, reduction='mean'):
+#         function = torch.nn.functional.cross_entropy
+#         output = function(input, target, weight, size_average, ignore_index, reduce, reduction)
+#         ctx.save_for_backward(input, target)
+#         return output
 
-    # This function has only a single output, so it gets only one gradient
-    @staticmethod
-    def backward(ctx, grad_output):
-        # This is a pattern that is very convenient - at the top of backward
-        # unpack saved_tensors and initialize all gradients w.r.t. inputs to
-        # None. Thanks to the fact that additional trailing Nones are
-        # ignored, the return statement is simple even when the function has
-        # optional inputs.
-        eps = pow(2,-10)
-        input, target = ctx.saved_tensors
+#     # This function has only a single output, so it gets only one gradient
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         # This is a pattern that is very convenient - at the top of backward
+#         # unpack saved_tensors and initialize all gradients w.r.t. inputs to
+#         # None. Thanks to the fact that additional trailing Nones are
+#         # ignored, the return statement is simple even when the function has
+#         # optional inputs.
+#         eps = pow(2,-10)
+#         input, target = ctx.saved_tensors
 
-        the_max = torch.max(input, dim=1)[0].unsqueeze(1).expand_as(input)
-        exp = torch.exp(input - the_max)
-        exp_sum = exp.sum(dim=1).unsqueeze(1).expand_as(input)
-        ratio = exp / exp_sum
+#         the_max = torch.max(input, dim=1)[0].unsqueeze(1).expand_as(input)
+#         exp = torch.exp(input - the_max)
+#         exp_sum = exp.sum(dim=1).unsqueeze(1).expand_as(input)
+#         ratio = exp / exp_sum
 
-        grad_input_mask = torch.zeros_like(input)
-        l_index = torch.LongTensor(range(len(input))).to(grad_input_mask.device)
-        grad_input_mask[l_index, target] = 1
-        grad_input = (ratio - grad_input_mask)/len(input)
-        # grad_inputS = (exp_sum - exp) * exp / (exp_sum ** 2)
-        # grad_input = (ratio - grad_input_mask)/len(input)
-        grad_inputS = (1 - ratio) * ratio
+#         grad_input_mask = torch.zeros_like(input)
+#         l_index = torch.LongTensor(range(len(input))).to(grad_input_mask.device)
+#         grad_input_mask[l_index, target] = 1
+#         grad_input = (ratio - grad_input_mask)/len(input)
+#         # grad_inputS = (exp_sum - exp) * exp / (exp_sum ** 2)
+#         # grad_input = (ratio - grad_input_mask)/len(input)
+#         grad_inputS = (1 - ratio) * ratio * (2 * ratio - 1)
         
-        test_nan(exp, exp_sum, grad_input, grad_inputS, ratio)
+#         test_nan(exp, exp_sum, grad_input, grad_inputS, ratio)
 
-        return grad_input, grad_inputS, None, None, None, None, None, None
+#         return grad_input, grad_inputS, None, None, None, None, None, None
