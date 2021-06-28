@@ -1,8 +1,16 @@
 import torch
 from torch import nn
-from Functions import SCrossEntropyLossFunction
-from modules import SLinear, SReLU, SModel, SConv2d, SMaxpool2D
+from Functions import SCrossEntropyLossFunction, TCrossEntropyLossFunction
+from modules import SLinear, SReLU, NMMModel, SConv2d, SMaxpool2D
 
+class OCrossEntropyLoss(nn.Module):
+    def __init__(self, weight=None, size_average=None, ignore_index=-100, reduce=None, reduction='mean'):
+        super().__init__()
+        self.op = nn.CrossEntropyLoss(weight, size_average, ignore_index, reduce, reduction)
+    
+    def forward(self, input, inputS, labels):
+        output = self.op(input, labels)
+        return output
 
 class SCrossEntropyLoss(nn.Module):
     def __init__(self, weight=None, size_average=None, ignore_index=-100, reduce=None, reduction='mean'):
@@ -18,13 +26,18 @@ class SCrossEntropyLoss(nn.Module):
         output = self.function.apply(input, inputS, labels, self.weight, self.size_average, self.ignore_index, self.reduce, self.reduction)
         return output
 
-class FakeSCrossEntropyLoss(nn.Module):
+class TCrossEntropyLoss(nn.Module):
     def __init__(self, weight=None, size_average=None, ignore_index=-100, reduce=None, reduction='mean'):
         super().__init__()
-        self.op = nn.CrossEntropyLoss(weight, size_average, ignore_index, reduce, reduction)
+        self.function = TCrossEntropyLossFunction
+        self.weight = weight
+        self.size_average = size_average
+        self.ignore_index = ignore_index
+        self.reduce = reduce
+        self.reduction = reduction
     
     def forward(self, input, inputS, labels):
-        output = self.op(input, labels)
+        output = self.function.apply(input, inputS, labels, self.weight, self.size_average, self.ignore_index, self.reduce, self.reduction)
         return output
 
 class Model(nn.Module):
@@ -42,7 +55,7 @@ class Model(nn.Module):
         x = self.fc3(x)
         return x
 
-class SMLP3(SModel):
+class SMLP3(NMMModel):
     def __init__(self):
         super().__init__()
         self.fc1 = SLinear(28*28,32)
@@ -60,7 +73,7 @@ class SMLP3(SModel):
         x, xS = self.fc3(x, xS)
         return x, xS
 
-class SMLP4(SModel):
+class SMLP4(NMMModel):
     def __init__(self):
         super().__init__()
         self.fc1 = SLinear(28*28,32)
@@ -82,7 +95,7 @@ class SMLP4(SModel):
         return x, xS
 
 
-class SLeNet(SModel):
+class SLeNet(NMMModel):
 
     def __init__(self):
         super().__init__()

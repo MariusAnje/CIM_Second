@@ -215,10 +215,9 @@ class TMaxpool2D(nn.Module):
         xT = xT.view(shape)[indices].view(x.shape)
         return x, xT
 
-class NMMModule(nn.Module):
-    def __init__(self, type):
+class NMMModel(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.type = type
     
     def push_H_device(self):
         for m in self.modules():
@@ -234,7 +233,7 @@ class NMMModule(nn.Module):
         H_grad_sum = 0
         for m in self.modules():
             if isinstance(m, SLinear) or isinstance(m, SConv2d) or isinstance(m, TLinear) or isinstance(m, TConv2d):
-                H_grad_sum += m.fetch_S_grad()
+                H_grad_sum += m.fetch_H_grad()
         return H_grad_sum
     
     def calc_H_grad_th(self, quantile):
@@ -311,8 +310,12 @@ class NMMModule(nn.Module):
                 new_layer = OReLU()
                 new_layer.op = m.op
                 self._modules[name] = new_layer
-
+            
+            elif "op" in name or isinstance(m, NMMModel):
+                pass
             else:
+                print(m)
+                print(name)
                 raise NotImplementedError
     
     def to_second(self):
@@ -348,7 +351,12 @@ class NMMModule(nn.Module):
                 new_layer.op = m.op
                 self._modules[name] = new_layer
 
+            elif "op" in name or isinstance(m, NMMModel):
+                pass
+
             else:
+                print(m)
+                print(name)
                 raise NotImplementedError
     
     def to_third(self):
@@ -384,5 +392,10 @@ class NMMModule(nn.Module):
                 new_layer.op = m.op
                 self._modules[name] = new_layer
 
+            elif "op" in name or isinstance(m, NMMModel):
+                pass
+
             else:
+                print(m)
+                print(name)
                 raise NotImplementedError
