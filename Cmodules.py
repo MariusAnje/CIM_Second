@@ -81,7 +81,7 @@ class CLinear(CModule):
             o_size = self.op.out_features
 
             IN = self.input.view(BS,1,-1)
-            self.gradWS += IN.swapaxes(1,2).bmm(IN).view(BS,-1).t().mm(grad_outputS.view(BS,-1)).view(i_size,i_size,o_size,o_size).swapaxes(0,2).swapaxes(0,1).reshape(self.gradWS.shape,)
+            self.gradWS += IN.swapaxes(1,2).bmm(IN).view(BS,-1).t().mm(grad_outputS.view(BS,-1)).view(i_size,i_size,o_size,o_size).swapaxes(0,2).swapaxes(0,1).reshape(self.gradWS.shape)
             self.weightS += self.gradWS.diag().view(self.weightS.shape)
             gradIS = self.op.weight.t().matmul(grad_outputS).matmul(self.op.weight)
             return gradIS
@@ -100,7 +100,6 @@ class CCrossEntropyLoss(nn.Module):
         with torch.no_grad():
             BS = output.shape[0]
             e3 = (output - output.max()).exp()
-            print(e3.shape)
             e3_sum = e3.sum(dim=1).unsqueeze(1).expand_as(e3)
             ratio = (e3 / e3_sum).view(BS,1,-1)
             return (torch.diag_embed(ratio.view(BS,-1),0,1) - ratio.swapaxes(1,2).bmm(ratio))
