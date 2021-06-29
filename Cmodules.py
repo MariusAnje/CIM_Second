@@ -8,7 +8,7 @@ class CModule(nn.Module):
         super().__init__()
     
     def create_helper(self):
-        self.weightS = torch.ones(self.op.weight.size())
+        self.weightS = torch.zeros_like(self.op.weight)
         self.noise = torch.zeros_like(self.op.weight)
         self.mask = torch.ones_like(self.op.weight)
 
@@ -70,16 +70,21 @@ class CLinear(CModule):
     def __init__(self, in_features, out_features, bias=True):
         super().__init__()
         self.op = nn.Linear(in_features, out_features, bias)
+        self.gradWS = torch.zeros(in_features * out_features, in_features * out_features)
         self.create_helper()
         self.function = F.linear
 
     def Cbackward(self, grad_outputS):
-        BS = self.input.shape[0]
-        IN = self.input.view(BS,1,-1)
-        self.gradWS = IN.swapaxes(1,2).bmm(IN).view(BS,-1).t().mm(grad_outputS.view(BS,-1))
-        self.weightS.grad = self.gradWS.diag().view(self.weightS.shape)
-        gradIS = self.op.weight.t().matmul(grad_outputS).matmul(self.op.weight)
-        return gradIS
+        with torch.no_grad():
+            BS = self.input.shape[0]
+            i_size = self.op.in_features
+            o_size = self.op.out_features
+
+            IN = self.input.view(BS,1,-1)
+            self.gradWS += IN.swapaxes(1,2).bmm(IN).view(BS,-1).t().mm(grad_outputS.view(BS,-1)).view(i_size,i_size,o_size,o_size).swapaxes(0,2).swapaxes(0,1).reshape(self.gradWS.shape,)
+            self.weightS += self.gradWS.diag().view(self.weightS.shape)
+            gradIS = self.op.weight.t().matmul(grad_outputS).matmul(self.op.weight)
+            return gradIS
     
     def forward(self, x):
         self.input = x
@@ -91,13 +96,14 @@ class CCrossEntropyLoss(nn.Module):
         super().__init__()
         self.op = nn.CrossEntropyLoss(weight=weight, size_average=size_average, ignore_index=ignore_index, reduce=reduce, reduction=reduction)
     
-    def Cbackward(self, grad_outputS):
-        BS = grad_outputS.shape[0]
-        e3 = (grad_outputS - grad_outputS.max()).exp()
-        print(e3.shape)
-        e3_sum = e3.sum(dim=1).unsqueeze(1).expand_as(e3)
-        ratio = (e3 / e3_sum).view(BS,1,-1)
-        return (torch.diag_embed(ratio.view(BS,-1),0,1) - ratio.swapaxes(1,2).bmm(ratio))
+    def Cbackward(self, output):
+        with torch.no_grad():
+            BS = output.shape[0]
+            e3 = (output - output.max()).exp()
+            print(e3.shape)
+            e3_sum = e3.sum(dim=1).unsqueeze(1).expand_as(e3)
+            ratio = (e3 / e3_sum).view(BS,1,-1)
+            return (torch.diag_embed(ratio.view(BS,-1),0,1) - ratio.swapaxes(1,2).bmm(ratio))
 
     def forward(self, input, labels):
         output = self.op(input, labels)
@@ -120,10 +126,18 @@ class CReLU(nn.Module):
         super().__init__()
         self.op = nn.ReLU()
     
-    def forward(self, x, xS):
-        return self.op(x), self.op(xS)
+    def Cbackward(self, grad_outputS):
+        with torch.no_grad():
+            BS = self.input.size(0)
+            mask = (self.input > 0).to(torch.float).view(BS,1,-1)
+            mask = mask.swapaxes(1,2).bmm(mask)
+            return grad_outputS * mask
+    
+    def forward(self, x):
+        self.input = x
+        return self.op(x)
 
-class SMaxpool2D(nn.Module):
+class CMaxpool2D(nn.Module):
     def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False):
         super().__init__()
         return_indices = True
@@ -134,20 +148,34 @@ class SMaxpool2D(nn.Module):
         length = w * h
         BD = torch.LongTensor(list(range(bs))).expand([length,ch,bs]).swapaxes(0,2).reshape(-1)
         CD = torch.LongTensor(list(range(ch))).expand([bs,length,ch]).swapaxes(1,2).reshape(-1)
-        shape = [bs, ch, -1]
-        return shape, [BD, CD, indice.view(-1)]
-
+        return [BD, CD, indice.view(-1)]
     
-    def forward(self, x, xS):
-        x, indices = self.op(x)
-        shape, indices = self.parse_indice(indices)
-        xS = xS.view(shape)[indices].view(x.shape)
-        return x, xS
+    def Cbackward(self, grad_outputS):
+        shape, indices = self.saved
+        bs, ch, w, h = shape
+        grad_inputS = torch.zeros(shape)
+        grad_inputS.view(bs,ch,-1)[indices] = grad_outputS.view(bs, ch, -1)
+        return grad_inputS
+
+    def forward(self, x):
+        x1, indices = self.op(x)
+        indices = self.parse_indice(indices)
+        shape = x.shape
+        self.saved = (shape, indices)
+        return x1
 
 class CModel(nn.Module):
     def __init__(self):
         super().__init__()
     
+    def C_cross_entropy_back(self, output):
+        with torch.no_grad():
+            BS = output.shape[0]
+            e3 = (output - output.max()).exp()
+            e3_sum = e3.sum(dim=1).unsqueeze(1).expand_as(e3)
+            ratio = (e3 / e3_sum).view(BS,1,-1)
+            return (torch.diag_embed(ratio.view(BS,-1),0,1) - ratio.swapaxes(1,2).bmm(ratio))
+
     def push_S_device(self):
         for m in self.modules():
             if isinstance(m, CModule):
