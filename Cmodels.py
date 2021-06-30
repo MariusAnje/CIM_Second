@@ -13,12 +13,13 @@ class CMLP3(CModel):
         self.fc3 = CLinear(32,10)
     
     def Cbackward(self, output):
-        S = self.C_cross_entropy_back(output)
-        S = self.fc3.Cbackward(S)
-        S = self.relu2.Cbackward(S)
-        S = self.fc2.Cbackward(S)
-        S = self.relu1.Cbackward(S)
-        S = self.fc1.Cbackward(S)
+        with torch.no_grad():
+            S = self.C_cross_entropy_back(output)
+            S = self.fc3.Cbackward(S)
+            S = self.relu2.Cbackward(S)
+            S = self.fc2.Cbackward(S)
+            S = self.relu1.Cbackward(S)
+            S = self.fc1.Cbackward(S)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)

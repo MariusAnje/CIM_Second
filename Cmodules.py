@@ -52,7 +52,9 @@ class CModule(nn.Module):
 
     def push_S_device(self):
         self.weightS = self.weightS.to(self.op.weight.device)
+        self.noise = self.noise.to(self.op.weight.device)
         self.mask = self.mask.to(self.op.weight.device)
+        self.gradWS = self.gradWS.to(self.op.weight.device)
 
     def clear_S_grad(self):
         self.weightS = torch.zeros_like(self.op.weight)
