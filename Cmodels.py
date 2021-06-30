@@ -30,6 +30,41 @@ class CMLP3(CModel):
         x = self.fc3(x)
         return x
 
+class CMLP4(CModel):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = CLinear(28*28,32)
+        self.relu1 = CReLU()
+        self.fc2 = CLinear(32,32)
+        self.relu2 = CReLU()
+        self.fc3 = CLinear(32,32)
+        self.relu3 = CReLU()
+        self.fc4 = CLinear(32,10)
+        
+    
+    
+    def Cbackward(self, output):
+        with torch.no_grad():
+            S = self.C_cross_entropy_back(output)
+            S = self.fc4.Cbackward(S)
+            S = self.relu3.Cbackward(S)
+            S = self.fc3.Cbackward(S)
+            S = self.relu2.Cbackward(S)
+            S = self.fc2.Cbackward(S)
+            S = self.relu1.Cbackward(S)
+            S = self.fc1.Cbackward(S)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.relu1(x)
+        x = self.fc2(x)
+        x = self.relu2(x)
+        x = self.fc3(x)
+        x = self.relu3(x)
+        x = self.fc4(x)
+        return x
+        
 # class SMLP4(SModel):
 #     def __init__(self):
 #         super().__init__()
