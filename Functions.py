@@ -31,7 +31,7 @@ class SLinearFunction(autograd.Function):
         # ignored, the return statement is simple even when the function has
         # optional inputs.
         input, weight, bias = ctx.saved_tensors
-        grad_input = grad_weight = grad_inputS = grad_bias = grad_weightS = None
+        grad_input = grad_weight = grad_bias = None
 
         # print(f"g: {grad_output}")
         # These needs_input_grad checks are optional and there only to
