@@ -298,6 +298,8 @@ if __name__ == "__main__":
         print(f"No mask no noise: {CEval():.4f}")
         model.load_state_dict(state_dict)
         model.clear_mask()
+        model.back_real(device)
+        model.push_S_device()
 
         GetSecond()
         print(f"S grad before masking: {model.fetch_S_grad().item():E}")
