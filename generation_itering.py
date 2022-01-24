@@ -133,7 +133,7 @@ def NTrain(epochs, header, dev_var, write_var, verbose=False):
         # for images, labels in tqdm(trainloader):
         for images, labels in trainloader:
             model.clear_noise()
-            # model.set_noise(dev_var, write_var)
+            model.set_noise(dev_var, write_var)
             optimizer.zero_grad()
             images, labels = images.to(device), labels.to(device)
             # images = images.view(-1, 784)
@@ -142,8 +142,8 @@ def NTrain(epochs, header, dev_var, write_var, verbose=False):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-        # test_acc = NEachEval(dev_var, write_var)
-        test_acc = CEval()
+        test_acc = NEachEval(dev_var, write_var)
+        # test_acc = CEval()
         if test_acc > best_acc:
             best_acc = test_acc
             torch.save(model.state_dict(), f"tmp_best_{header}.pt")
@@ -281,6 +281,8 @@ if __name__ == "__main__":
         torch.save(model.state_dict(), f"saved_B_{header}.pt")
         state_dict = torch.load(f"saved_B_{header}.pt")
         print(f"No mask no noise: {CEval():.4f}")
+        test_acc = NEachEval(args.dev_var, args.write_var)
+        print(f"No mask noise each: {test_acc:.4f}")
         model.load_state_dict(state_dict)
         model.clear_mask()
         model.back_real(device)
