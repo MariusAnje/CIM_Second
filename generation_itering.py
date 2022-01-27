@@ -25,12 +25,12 @@ from qmodels import QSModel
 
 class GQSLeNet(QSModel):
 
-        def __init__(self, ch1, ch2, kN1, kN2, N=4):
+        def __init__(self, ch1, ch2, kN1, kN2, qb1, qb2, N=4):
             super().__init__()
             # 1 input image channel, 6 output channels, 3x3 square convolution
             # kernel
-            self.conv1 = QSConv2d(N, 1, ch1, kN1, padding=kN1//2)
-            self.conv2 = QSConv2d(N, ch1, ch2, kN2, padding=kN2//2)
+            self.conv1 = QSConv2d(qb1, 1, ch1, kN1, padding=kN1//2)
+            self.conv2 = QSConv2d(qb2, ch1, ch2, kN2, padding=kN2//2)
             # an affine operation: y = Wx + b
             self.fc1 = QSLinear(N, ch2 * 7 * 7, 120)  # 6*6 from image dimension
             self.fc2 = QSLinear(N, 120, 84)
@@ -208,6 +208,8 @@ if __name__ == "__main__":
             help='device used')
     parser.add_argument('--verbose', action='store', type=str2bool, default=False,
             help='see training process')
+    parser.add_argument('--each_only', action='store', type=str2bool, default=False,
+            help='only use noise each, do not MC')        
     parser.add_argument('--header', action='store',type=int, default=1,
             help='use which saved state dict')
     parser.add_argument('--pretrained', action='store',type=str2bool, default=True,
@@ -225,25 +227,41 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(args)
-    ch1L = [ 6, 12, 24]
-    ch2L = [16, 32, 64]
-    kN1L = [1, 3, 5, 7]
-    kN2L = [1, 3, 5, 7]
+    # ch1L = [ 6, 12, 24]
+    # qb1L = [2, 3, 4, 5]
+    # qb2L = [2, 3, 4, 5]
+    # ch2L = [16, 32, 64]
+    # kN1L = [1, 3, 5, 7]
+    # kN2L = [1, 3, 5, 7]
+
+    space = [   [ 6, 12, 24], #ch1L
+                [16, 32, 64], #ch2L
+                [1, 3, 5, 7], #kN1L
+                [1, 3, 5, 7], #kN2L
+                [2, 3, 4, 5], #qb1L
+                [2, 3, 4, 5],]#qb2L
 
     header = time.time()
     header_timer = header
-    for i in range(len(ch1L) * len(ch2L) * len(kN1L) * len(kN2L)):
-        ch1I = i % len(ch1L)
-        ch2I = (i // len(ch1L)) % len(ch2L)
-        kN1I = (i // len(ch1L) // len(ch2L)) % len(kN1L)
-        kN2I = (i // len(ch1L) // len(ch2L) // len(kN1L)) % len(kN2L)
-        ch1 = ch1L[ch1I]
-        ch2 = ch2L[ch2I]
-        kN1 = kN1L[kN1I]
-        kN2 = kN2L[kN2I]
-        print("rollout: [", ch1, ch2, kN1, kN2, "]")
+    total = 1
+    for i in range(len(space)):
+        total *= len(space[i])
+    for i in range(total):
+        k = i
+        rolloutI = []
+        for j in range(len(space)):
+            rolloutI.append(k % len(space[j]))
+            k = k // len(space[j])
+
+        ch1 = space[0][rolloutI[0]]
+        ch2 = space[1][rolloutI[1]]
+        kN1 = space[2][rolloutI[2]]
+        kN2 = space[3][rolloutI[3]]
+        qb1 = space[4][rolloutI[4]]
+        qb2 = space[5][rolloutI[5]]
+        print("rollout: [", ch1, ch2, kN1, kN2, qb1, qb2, "]")
         
-        model = GQSLeNet(ch1, ch2, kN1, kN2)
+        model = GQSLeNet(ch1, ch2, kN1, kN2, qb1, qb2)
         parent_path = "./"
         
         device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -291,11 +309,12 @@ if __name__ == "__main__":
         GetSecond()
         print(f"S grad before masking: {model.fetch_S_grad().item():E}")
 
-        no_mask_acc_list = []
-        loader = range(args.noise_epoch)
-        for _ in loader:
-            acc = NEval(args.dev_var, 0.0)
-            no_mask_acc_list.append(acc)
-        print(f"No mask noise average acc: {np.mean(no_mask_acc_list):.4f}, std: {np.std(no_mask_acc_list):.4f}")
-        torch.save(no_mask_acc_list, f"no_mask_list_{header}_{args.dev_var}.pt")
+        if not args.each_only:
+            no_mask_acc_list = []
+            loader = range(args.noise_epoch)
+            for _ in loader:
+                acc = NEval(args.dev_var, 0.0)
+                no_mask_acc_list.append(acc)
+            print(f"No mask noise average acc: {np.mean(no_mask_acc_list):.4f}, std: {np.std(no_mask_acc_list):.4f}")
+            torch.save(no_mask_acc_list, f"no_mask_list_{header}_{args.dev_var}.pt")
     
