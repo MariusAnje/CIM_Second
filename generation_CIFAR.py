@@ -130,6 +130,7 @@ def NEachEval(dev_var, write_var):
     correct = 0
     model.clear_noise()
     with torch.no_grad():
+        # for images, labels in tqdm(testloader):
         for images, labels in testloader:
             model.clear_noise()
             model.set_noise(dev_var, write_var)
@@ -243,6 +244,10 @@ if __name__ == "__main__":
             help='division points for second')
     parser.add_argument('--layerwise', action='store',type=str2bool, default=False,
             help='if do it layer by layer')
+    parser.add_argument('--start', action='store', type=int, default=0,
+            help='the starting architecture')
+    parser.add_argument('--end', action='store', type=int, default=48,
+            help='the ending architecture')
     args = parser.parse_args()
 
     print(args)
@@ -284,14 +289,15 @@ if __name__ == "__main__":
     total = 1
     for i in range(len(space)):
         total *= len(space[i])
-    for i in range(total):
+    for i in range(args.start, args.end):
         k = i
         rolloutI = []
         for j in range(len(space)):
             rolloutI.append(k % len(space[j]))
             k = k // len(space[j])
 
-        print("rollout: ", rolloutI)
+        # rolloutI = [1, 2, 2]
+        print("rollout: ", rolloutI)        
         
         model = GQCIFAR(rolloutI, space[0], space[1], space[2])
         parent_path = "./"
@@ -335,4 +341,4 @@ if __name__ == "__main__":
                 no_mask_acc_list.append(acc)
             print(f"No mask noise average acc: {np.mean(no_mask_acc_list):.4f}, std: {np.std(no_mask_acc_list):.4f}")
             torch.save(no_mask_acc_list, f"no_mask_list_{header}_{args.dev_var}.pt")
-    
+        # break
