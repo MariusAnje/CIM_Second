@@ -160,3 +160,4 @@ second_many.py
 many_test.py
 .__afs*
 read_trace.ipynb
+results/GConv_MC_All_Res_10K.npy
