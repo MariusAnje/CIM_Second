@@ -35,6 +35,25 @@ class SModule(nn.Module):
 
         self.noise = noise_dev * self.mask + noise_write * (1 - self.mask)
     
+    def set_noise_hete(self, dev_var, write_var, s_rate, N, m):
+        dev_var = dev_var / np.sqrt((s_rate**2 * 0.4 + 0.6))
+        write_var = write_var / np.sqrt((s_rate**2 * 0.4 + 0.6))
+        dev_var_list = [1., s_rate, s_rate, 1.]
+        self.dev_var_list = dev_var_list
+        scale = self.op.weight.abs().max().item()
+        mask = ((0.25 < (self.op.weight.abs() / scale)) * ((self.op.weight.abs() / scale) < 0.75)).float()
+        new_sigma = 0
+        for i in range(1, N//m + 1):
+            new_sigma += pow(2, - i*m) ** 2
+        new_sigma = np.sqrt(new_sigma)
+        noise_dev = torch.randn_like(self.noise) * new_sigma * dev_var
+        noise_dev = noise_dev.to(self.op.weight.device) * scale
+        noise_dev = noise_dev * mask * dev_var_list[1] + noise_dev * (1-mask) * dev_var_list[0]
+        noise_write = torch.randn_like(self.noise) * new_sigma * write_var
+        noise_write = noise_write.to(self.op.weight.device) * scale
+        noise_write = noise_write * mask * dev_var_list[1] + noise_write * (1-mask) * dev_var_list[0]
+        self.noise = noise_dev * self.mask + noise_write * (1 - self.mask)
+    
     def set_add(self, dev_var, write_var, N, m):
         # N: number of bits per weight, m: number of bits per device
         # Dev_var: device variation before write and verify
@@ -69,6 +88,12 @@ class SModule(nn.Module):
         if method == "SM":
             # return self.weightS.grad.data.abs() * alpha - self.op.weight.data.abs()
             return self.weightS.grad.data.abs() * self.op.weight.abs().max() * alpha + self.op.weight.data.abs()
+        if method == "HSM":
+            scale = self.op.weight.abs().max().item()
+            mask = ((0.25 < (self.op.weight.abs() / scale)) * ((self.op.weight.abs() / scale) < 0.75)).float()
+            # self.noise = noise_dev * mask * dev_var_list[1] + noise_dev * (1-mask) * dev_var_list[0]
+            second_norm = self.weightS.grad.data.abs() * mask * self.dev_var_list[1] + self.weightS.grad.data.abs() * (1-mask) * self.dev_var_list[0]
+            return second_norm * self.op.weight.abs().max() * alpha + self.op.weight.data.abs()
         else:
             raise NotImplementedError(f"method {method} not supported")
     
@@ -214,6 +239,25 @@ class NModule(nn.Module):
 
         self.noise = noise_dev * self.mask + noise_write * (1 - self.mask)
     
+    def set_noise_hete(self, dev_var, write_var, s_rate, N, m):
+        dev_var = dev_var / np.sqrt((s_rate**2 * 0.4 + 0.6))
+        write_var = write_var / np.sqrt((s_rate**2 * 0.4 + 0.6))
+        dev_var_list = [1., s_rate, s_rate, 1.]
+        self.dev_var_list = dev_var_list
+        scale = self.op.weight.abs().max().item()
+        mask = ((0.25 < (self.op.weight.abs() / scale)) * ((self.op.weight.abs() / scale) < 0.75)).float()
+        new_sigma = 0
+        for i in range(1, N//m + 1):
+            new_sigma += pow(2, - i*m) ** 2
+        new_sigma = np.sqrt(new_sigma)
+        noise_dev = torch.randn_like(self.noise) * new_sigma * dev_var
+        noise_dev = noise_dev.to(self.op.weight.device) * scale
+        noise_dev = noise_dev * mask * dev_var_list[1] + noise_dev * (1-mask) * dev_var_list[0]
+        noise_write = torch.randn_like(self.noise) * new_sigma * write_var
+        noise_write = noise_write.to(self.op.weight.device) * scale
+        noise_write = noise_write * mask * dev_var_list[1] + noise_write * (1-mask) * dev_var_list[0]
+        self.noise = noise_dev * self.mask + noise_write * (1 - self.mask)
+    
     def clear_noise(self):
         self.noise = torch.zeros_like(self.op.weight)
     
@@ -341,6 +385,11 @@ class NModel(nn.Module):
         for mo in self.modules():
             if isinstance(mo, NModule):
                 mo.set_noise(dev_var, write_var, N, m)
+    
+    def set_noise_hete(self, dev_var, write_var, s_rate, N=8, m=1):
+        for mo in self.modules():
+            if isinstance(mo, NModule):
+                mo.set_noise_hete(dev_var, write_var, s_rate, N, m)
    
     def set_add(self, dev_var, write_var, N=8, m=1):
         for mo in self.modules():
@@ -434,6 +483,11 @@ class SModel(nn.Module):
         for mo in self.modules():
             if isinstance(mo, SModule) or isinstance(mo, NModule):
                 mo.set_noise(dev_var, write_var, N, m)
+    
+    def set_noise_hete(self, dev_var, write_var, s_rate, N=8, m=1):
+        for mo in self.modules():
+            if isinstance(mo, SModule) or isinstance(mo, NModule):
+                mo.set_noise_hete(dev_var, write_var, s_rate, N, m)
     
     def set_add(self, dev_var, write_var, N=8, m=1):
         for mo in self.modules():
