@@ -158,8 +158,11 @@ if __name__ == "__main__":
         print(f"S grad after  masking: {model.fetch_S_grad().item():E}")
         fine_mask_acc_list = []
         print(f"Finetune no noise: {CEval(model_group):.4f}")
-        loader = range(args.noise_epoch)
-        for _ in tqdm(loader):
+        if args.use_tqdm:
+            loader = tqdm(range(args.noise_epoch))
+        else:
+            loader = range(args.noise_epoch)
+        for _ in loader:
             acc = NEval(model_group, args.dev_var, args.write_var, args.s_rate)
             fine_mask_acc_list.append(acc)
         print(f"Finetune noise average acc: {np.mean(fine_mask_acc_list):.4f}, std: {np.std(fine_mask_acc_list):.4f}")

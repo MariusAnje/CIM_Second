@@ -203,16 +203,20 @@ class SBatchNorm2dFunction(autograd.Function):
 
 class QuantFunction(autograd.Function):
     @staticmethod
-    def forward(ctx, N, input):
-        det = input.abs().max() / pow(2, N)
+    def forward(ctx, N, input, input_range=None):
+        integer_range = pow(2, N) - 1
+        if input_range is None:
+            det = input.abs().max() / integer_range
+        else:
+            det = input_range / integer_range
         if det == 0:
             return input
         else:
-            return (input/det).round() * det
+            return (input/det).round().clamp(-integer_range, integer_range) * det
 
     @staticmethod
     def backward(ctx, grad_output):
-        return None, grad_output
+        return None, grad_output, None
 
 class SMSEFunction(autograd.Function):
     @staticmethod
