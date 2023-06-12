@@ -32,7 +32,6 @@ class QSLinear(SModule):
 
     def forward(self, xC):
         x, xS = xC
-        # x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight) + self.noise, self.weightS)
         x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight) + self.noise, self.weightS)
         if self.op.bias is not None:
             x += quant(self.N, self.op.bias)
@@ -71,13 +70,11 @@ class QSConv2d(SModule):
 
     def forward(self, xC):
         x, xS = xC
-        # x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight) + self.noise, self.weightS, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
-        x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight * self.mask) + self.noise, self.weightS, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
+        x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight) + self.noise, self.weightS, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         if self.op.bias is not None:
             x += quant(self.N, self.op.bias).reshape(1,-1,1,1).expand_as(x)
         if self.op.bias is not None:
             xS += self.op.bias.reshape(1,-1,1,1).expand_as(xS)
-        # x, xS = self.function(x * self.scale, xS * self.scale, quant(self.N, self.op.weight) + self.noise, self.weightS, self.op.bias, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         if self.training:
             this_max = x.abs().max().item()
             if self.input_range == 0:
@@ -107,12 +104,10 @@ class QNLinear(NModule):
         return new
 
     def forward(self, x):
-        # x = x = self.function(x, quant(self.N,self.op.weight) + self.noise, None)
-        x = x = self.function(x, quant(self.N,self.op.weight * self.mask) + self.noise, None)
+        x = self.function(x, quant(self.N,self.op.weight) + self.noise, None)
         x = x * self.scale
         if self.op.bias is not None:
             x += self.op.bias
-        # x = self.function(x, (quant(self.N, self.op.weight) + self.noise)  * self.scale , quant(self.N, self.op.bias))
         if self.training:
             this_max = x.abs().max().item()
             if self.input_range == 0:
@@ -149,7 +144,6 @@ class QNConv2d(NModule):
                     m.bias.zero_()
 
     def forward(self, x):
-        # x = self.function(x, quant(self.N, self.op.weight) + self.noise, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         x = self.function(x, quant(self.N, self.op.weight) + self.noise, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         x = x * self.scale
         if self.op.bias is not None:
