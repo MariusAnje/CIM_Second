@@ -63,6 +63,8 @@ if __name__ == "__main__":
             help='if to use tqdm')
     parser.add_argument('--s_rate', action='store',type=float, default=1.,
             help='rate of device var')
+    parser.add_argument('--no_first', action='store',type=str2bool,  default=False,
+            help='do not add first order')
     args = parser.parse_args()
 
     print(args)
@@ -139,11 +141,13 @@ if __name__ == "__main__":
     model.normalize()
     model_group = model, scheduler, criteriaF, optimizer, trainloader, testloader, device
     print(f"No mask no noise: {CEval(model_group):.4f}")
-    GetSecond(model_group, secondloader, criteria, args)
-    print(f"S grad before masking: {model.fetch_S_grad().item():E}")
-    # if "Res18" in args.model or "TIN" in args.model:
-    #     model.fine_S_grad()
-    model.fine_S_grad()
+    if args.calc_S:
+        GetSecond(model_group, secondloader, criteria, args)
+        print(f"S grad before masking: {model.fetch_S_grad().item():E}")
+        # if "Res18" in args.model or "TIN" in args.model:
+        #     model.fine_S_grad()
+        if not args.no_first:
+            model.fine_S_grad()
     
     if args.use_mask:
         model.clear_mask()
@@ -155,7 +159,8 @@ if __name__ == "__main__":
         total, RM_new = model.get_mask_info()
         print(f"Weights removed: {RM_new/total:f}")
         model.de_normalize()
-        print(f"S grad after  masking: {model.fetch_S_grad().item():E}")
+        if args.calc_S:
+            print(f"S grad after  masking: {model.fetch_S_grad().item():E}")
         fine_mask_acc_list = []
         print(f"Finetune no noise: {CEval(model_group):.4f}")
         if args.use_tqdm:

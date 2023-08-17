@@ -51,13 +51,12 @@ if __name__ == "__main__":
 
     model_group = model, scheduler, criteriaF, optimizer, trainloader, testloader, device
     model.to_first_only()
-    CTrain(model_group, args.train_epoch, header, args.train_var, 0.0, args.verbose)
-    if args.train_var > 0:
-        state_dict = torch.load(f"tmp_best_{header}.pt")
-        model.load_state_dict(state_dict)
+    CTrain(model_group, args.train_epoch, header, 0.0, 0.0, args.verbose)
+    state_dict = torch.load(f"tmp_best_{header}.pt")
+    model.load_state_dict(state_dict)
     model.from_first_back_second()
     torch.save(model.state_dict(), f"saved_B_{header}.pt")
     state_dict = torch.load(f"saved_B_{header}.pt")
-    print(f"No mask no noise: {CEval():.4f}")
+    print(f"No mask no noise: {CEval(model_group):.4f}")
     model.load_state_dict(state_dict)
     model.clear_mask()

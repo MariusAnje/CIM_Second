@@ -94,6 +94,8 @@ class SModule(nn.Module):
             # self.noise = noise_dev * mask * dev_var_list[1] + noise_dev * (1-mask) * dev_var_list[0]
             second_norm = self.weightS.grad.data.abs() * mask * self.dev_var_list[1] + self.weightS.grad.data.abs() * (1-mask) * self.dev_var_list[0]
             return second_norm * self.op.weight.abs().max() * alpha + self.op.weight.data.abs()
+        if method == "random":
+            return torch.rand_like(self.op.weight)
         else:
             raise NotImplementedError(f"method {method} not supported")
     
